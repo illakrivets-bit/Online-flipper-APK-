@@ -199,7 +199,9 @@ private fun HomeScreen(
     onDevice: (SavedDevice) -> Unit,
     onAbout: () -> Unit
 ) {
-    val introAlpha by animateFloatAsState(1f, tween(650), label = "introAlpha")
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    val introAlpha by animateFloatAsState(if (entered) 1f else 0f, tween(650, easing = FastOutSlowInEasing), label = "introAlpha")
     Column(
         Modifier.fillMaxSize().background(Black).statusBarsPadding()
             .padding(horizontal = 22.dp, vertical = 14.dp)
