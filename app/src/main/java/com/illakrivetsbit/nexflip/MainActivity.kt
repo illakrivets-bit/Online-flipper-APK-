@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -137,7 +138,7 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(modules) { module ->
+            gridItems(modules) { module ->
                 Column(
                     Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp))
                         .clickable { onSelect(module) }.padding(15.dp)
