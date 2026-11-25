@@ -11,6 +11,10 @@ import android.bluetooth.le.ScanResult
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.nfc.NfcAdapter
+import android.nfc.tech.Ndef
+import android.hardware.ConsumerIrManager
+import java.nio.charset.Charset
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -81,6 +85,10 @@ class MainActivity : ComponentActivity() {
                     if (selected == null) HomeScreen { selected = it }
                     else if (selected?.name == "Bluetooth" || selected?.name == "Device Scanner") {
                         BluetoothScreen(onBack = { selected = null })
+                    } else if (selected?.name == "NFC / RFID") {
+                        NfcScreen(onBack = { selected = null })
+                    } else if (selected?.name == "Infrared") {
+                        InfraredScreen(onBack = { selected = null })
                     } else {
                         ModuleScreen(selected!!, onBack = { selected = null })
                     }
@@ -334,5 +342,98 @@ private fun ModuleScreen(module: Module, onBack: () -> Unit) {
         Text(module.detail, color = Muted, fontSize = 14.sp, lineHeight = 21.sp)
         Spacer(Modifier.height(20.dp))
         Text("NOT AVAILABLE YET", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+
+@Composable
+private fun NfcScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val activity = context as ComponentActivity
+    val nfc = remember { NfcAdapter.getDefaultAdapter(context) }
+    var result by remember { mutableStateOf("Hold an NFC tag near the back of your phone.") }
+    var tagInfo by remember { mutableStateOf("") }
+
+    DisposableEffect(nfc) {
+        if (nfc != null && nfc.isEnabled) {
+            val callback = NfcAdapter.ReaderCallback { tag ->
+                val message = try {
+                    Ndef.get(tag)?.cachedNdefMessage?.records?.joinToString("\n") { record ->
+                        val payload = record.payload
+                        if (record.tnf == android.nfc.NdefRecord.TNF_WELL_KNOWN &&
+                            record.type.contentEquals(android.nfc.NdefRecord.RTD_TEXT) && payload.isNotEmpty()
+                        ) {
+                            val languageLength = payload[0].toInt() and 0x3F
+                            val start = (1 + languageLength).coerceAtMost(payload.size)
+                            val length = (payload.size - start).coerceAtLeast(0)
+                            String(payload, start, length, Charset.forName("UTF-8"))
+                        } else {
+                            String(payload, Charset.forName("UTF-8")).take(180)
+                        }
+                    }.orEmpty()
+                } catch (_: Exception) { "Tag detected. Content could not be read." }
+                activity.runOnUiThread {
+                    tagInfo = tag.techList.joinToString(", ")
+                    result = if (message.isBlank()) "NFC tag detected. No readable NDEF message." else message
+                }
+            }
+            try {
+                nfc.enableReaderMode(
+                    activity,
+                    callback,
+                    NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
+                        NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
+                    null
+                )
+            } catch (_: Exception) { result = "Could not start NFC reader." }
+        } else {
+            result = if (nfc == null) "This phone has no NFC hardware." else "Turn NFC on in Android settings."
+        }
+        onDispose {
+            try { nfc?.disableReaderMode(activity) } catch (_: Exception) {}
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(Background).padding(20.dp)) {
+        Text("‹  BACK", color = Accent, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(24.dp))
+        Text("NFC READER", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(14.dp))
+        Text(result, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+        Spacer(Modifier.height(12.dp))
+        if (tagInfo.isNotBlank()) Text("TECH: $tagInfo", color = Muted, fontSize = 10.sp)
+        Text("Reads compatible NFC tags only. It does not copy access credentials.", color = Muted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun InfraredScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val ir = remember { context.getSystemService(ComponentActivity.CONSUMER_IR_SERVICE) as? ConsumerIrManager }
+    val hasEmitter = remember { try { ir?.hasIrEmitter() == true } catch (_: Exception) { false } }
+    val ranges = remember {
+        try {
+            ir?.carrierFrequencies?.joinToString(", ") { "\${it.minFrequency / 1000}-\${it.maxFrequency / 1000} kHz" } ?: ""
+        } catch (_: Exception) { "" }
+    }
+    Column(Modifier.fillMaxSize().background(Background).padding(20.dp)) {
+        Text("‹  BACK", color = Accent, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(24.dp))
+        Text("INFRARED", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(16.dp))
+        Text(if (hasEmitter) "IR transmitter detected" else "No built-in IR transmitter",
+            color = if (hasEmitter) Accent else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        if (ranges.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text("Supported frequencies: $ranges", color = Muted, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (hasEmitter) "Hardware is available. A matching remote profile is still needed for each TV or projector."
+            else "Use a compatible external IR accessory. The phone alone cannot send infrared without IR hardware.",
+            color = Muted, fontSize = 13.sp, lineHeight = 20.sp
+        )
     }
 }
