@@ -1,55 +1,39 @@
-# Online Flipper: Zero — Cloudflare pairing service
+# Online Flipper : Zero — Cloudflare service
 
-This folder contains the Cloudflare Worker used for consent-based device pairing.
+This Worker provides consent-based pairing and a role-aware WebSocket relay.
 
-## What it currently implements
+## Implemented
 
-- Create a pairing session with a fixed 24-hour lifetime.
-- Return a QR payload containing a one-time invitation code (never the owner token).
-- A second device can request to join.
-- The owner must approve the exact pending request.
-- The approved device receives a separate access token.
-- Revoke a session at any time.
-- A 24-hour session expires automatically at its deadline, and the owner can revoke it earlier.
-- WebSocket relay accepts only small, allow-listed event types.
+- One-time QR join code and 24-hour session expiry.
+- Device join request and explicit owner approval.
+- Separate owner and companion tokens.
+- Authenticated WebSocket connections.
+- Owner-to-companion command relay restricted to `get_status`, `vibrate`, `ring`, and `stop_ring`.
+- Companion-to-owner results limited to known device-status fields.
+- Session revocation and expiry.
 
-This is a pairing/transport foundation, **not a general-purpose remote-control agent**. It does not provide shell access, hidden monitoring, screen capture, accessibility control, or arbitrary commands. Add narrowly scoped features only when the device owner explicitly enables and confirms them.
+This is not a general-purpose remote-control agent. No shell, hidden monitoring, screen capture, arbitrary app control, or bypass of Android permissions is provided.
 
-## Deploy
+## Deploy from GitHub Actions
 
-1. Install Node.js and Wrangler.
-2. From this directory run `npm create cloudflare@latest` only if you want a fresh local setup; do not overwrite this Worker.
-3. Install Wrangler in your own workspace: `npm install --save-dev wrangler`.
-4. Run `npx wrangler login`.
-5. Deploy with `npx wrangler deploy`.
+1. In Cloudflare, create an API token with permission to edit Workers and manage the account's Durable Objects.
+2. In GitHub, open **Settings → Secrets and variables → Actions**.
+3. Add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
+4. Open Actions and manually run **Deploy Online Flipper : Zero pairing service**.
+5. Open the successful run and copy the Worker URL, for example `https://online-flipper-pairing.<your-subdomain>.workers.dev`.
+6. Put that exact URL in `RemoteConnection.BASE_URL` in the Android source, commit it, and install the resulting APK on both phones.
 
-The first deployment creates the Durable Object SQLite class from the migration in `wrangler.toml`.
+Deployment cannot be completed until the repository owner adds those secrets.
 
-## API
+## Endpoints
 
 - `GET /health`
-- `POST /api/sessions` body: `{"duration":"24h"}`
-- `POST /api/sessions/:id/join` body: `{"joinCode":"...","deviceName":"My phone"}`
-- `POST /api/sessions/:id/join/status` body: `{"requestToken":"..."}`
-- `POST /api/sessions/:id/approve` body: `{"ownerToken":"...","requestId":"..."}`
-- `GET /api/sessions/:id/status` header: `X-Owner-Token: ...`
-- `POST /api/sessions/:id/revoke` body: `{"ownerToken":"..."}`
-- `GET /api/sessions/:id/ws?token=...` WebSocket (approved device token)
+- `POST /api/sessions` with `{"duration":"24h"}`
+- `POST /api/sessions/:id/join`
+- `POST /api/sessions/:id/join/status`
+- `GET /api/sessions/:id/status` with `X-Owner-Token`
+- `POST /api/sessions/:id/approve`
+- `POST /api/sessions/:id/revoke`
+- `GET /api/sessions/:id/ws?token=...` (WebSocket)
 
-The QR payload is JSON for the Android app to encode as a QR image. It is not a URL and must be parsed by the app.
-
-## Important next steps
-
-Before public deployment, add rate limiting at the edge, automated tests, log redaction, and an explicit owner-side approval UI in the Android app. Do not put owner tokens in QR codes, URLs, analytics, or logs.
-
-
-## GitHub Actions deployment
-
-The repository includes `.github/workflows/deploy-cloudflare.yml`. To enable deployment:
-
-1. In Cloudflare, create an API token with permission to edit Workers and access the account's Durable Objects.
-2. In GitHub, open **Settings → Secrets and variables → Actions**.
-3. Add repository secrets named `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-4. Run the **Deploy Online Flipper : Zero pairing service** workflow from the Actions tab.
-
-Deployment cannot run until those two secrets are added by the repository owner. After deployment, the Worker URL must be configured in the Android client before QR pairing can use it.
+The Android companion must remain open for this initial live-command implementation. Keep the Worker URL and access tokens private.
