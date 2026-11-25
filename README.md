@@ -1,20 +1,16 @@
 # Online flipper : Zero
 
-Android app for connecting to compatible devices you own or are authorized to manage.
+A compact Android app for connecting to devices you own or are authorized to manage.
 
-## Implemented integrations
+## Main screen
+- Bluetooth LE: scan, pair, connect to compatible peripherals, inspect advertised GATT services and disconnect.
+- Wi-Fi: discover local devices that advertise supported mDNS services and open available web interfaces.
+- QR connect: scan a QR code containing an HTTP or HTTPS device page and open it.
 
-- Bluetooth Low Energy: scan, pair, connect, list discovered GATT services and disconnect.
-- NFC: read compatible NDEF tags.
-- Infrared: detect the phone's IR emitter and supported carrier ranges.
-- Wi-Fi: discover local mDNS services such as HTTP devices, printers, Cast, AirPlay and HomeKit advertisements; open HTTP device pages.
+The interface uses Android safe-area insets so content stays clear of the status and navigation bars. The main screen keeps only the core connection tools.
 
-## Limits
-
-A connection does not automatically grant control. Each device needs its own supported protocol and pairing. Generic power-off commands do not exist across all brands. Unknown Bluetooth writes are not sent.
+## Important limits
+A QR scan opens a device's web page; it does not magically pair with every device. Direct control requires the device maker's supported protocol and any required authorization. Unknown Bluetooth commands are not sent.
 
 ## Build
-
-GitHub Actions builds a debug APK on pushes to `main`. Download the `Online-Flipper-Zero-debug` artifact from the latest successful workflow run.
-
-Use only with devices and networks you own or have permission to manage.
+GitHub Actions builds a debug APK on pushes to main. Download the `Online-Flipper-Zero-debug` artifact from a successful workflow run.
