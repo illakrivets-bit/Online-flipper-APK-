@@ -1,0 +1,26 @@
+name: Cloudflare pairing service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/cloudflare.yml"
+  pull_request:
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/cloudflare.yml"
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx tsc --noEmit
