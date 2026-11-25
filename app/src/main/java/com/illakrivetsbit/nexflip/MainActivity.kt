@@ -18,6 +18,10 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.content.Intent
+import android.content.ContentValues
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.provider.MediaStore
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
@@ -53,6 +57,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +87,8 @@ private val modules = listOf(
     Module("Infrared", "◉", "TVs and projectors", "Requires a phone with an IR transmitter or a supported external IR accessory. Device-specific remote profiles will be added."),
     Module("NFC / RFID", "▦", "Read compatible NFC tags", "NFC reading requires an NFC-equipped phone. Access cards and security credentials are not copied."),
     Module("Smart Home", "⌂", "Home device services", "Discover local smart-home services. Direct controls require the device maker’s supported protocol and pairing."),
-    Module("Device Scanner", "⌕", "Bluetooth LE discovery", "Find nearby devices that advertise Bluetooth Low Energy services.")
+    Module("Device Scanner", "⌕", "Bluetooth LE discovery", "Find nearby devices that advertise Bluetooth Low Energy services."),
+    Module("QR Studio", "▦", "Create and save QR codes", "Generate QR codes from links or text, copy content, and keep a local history.")
 )
 
 private data class NearbyDevice(
@@ -110,6 +116,8 @@ class MainActivity : ComponentActivity() {
                         NfcScreen(onBack = { selected = null })
                     } else if (selected?.name == "Infrared") {
                         InfraredScreen(onBack = { selected = null })
+                    } else if (selected?.name == "QR Studio") {
+                        QrStudioScreen(onBack = { selected = null })
                     } else {
                         ModuleScreen(selected!!, onBack = { selected = null })
                     }
@@ -189,6 +197,8 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
         Text(message, color = Color.DarkGray, fontSize = 10.sp)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onSelect(Module("QR Studio", "▦", "QR tools", "Create QR codes from links or text.")) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("QR STUDIO") }
             Button(onClick = { onSelect(Module("Bluetooth", "B", "Bluetooth", "Scan and connect to compatible BLE devices.")) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("Bluetooth") }
             Button(onClick = { onSelect(Module("Wi-Fi", "W", "Wi-Fi", "Find devices on your local network.")) },
@@ -217,6 +227,117 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
                 qrBitmap(deviceQr(item))?.let { Image(it.asImageBitmap(), "Device QR code", Modifier.fillMaxWidth().padding(12.dp)) }
                 Text("Scan in Online Flipper : Zero on another device.", color = Color.DarkGray, fontSize = 10.sp)
                 Button(onClick = { selectedQr = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("CLOSE") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QrStudioScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("qr_studio", android.content.Context.MODE_PRIVATE) }
+    var value by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("Enter a link or any text to create a QR code.") }
+    val history = remember {
+        mutableStateListOf<String>().apply {
+            prefs.getStringSet("history", emptySet()).orEmpty().toList().take(30).forEach { encoded ->
+                try { add(String(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT), Charsets.UTF_8)) } catch (_: Exception) {}
+            }
+        }
+    }
+    val bitmap = remember(value) { if (value.isBlank()) null else qrBitmap(value.trim()) }
+
+    fun rememberValue(text: String) {
+        if (text.isBlank()) return
+        history.remove(text)
+        history.add(0, text)
+        while (history.size > 30) history.removeAt(history.lastIndex)
+        val encoded = history.map { android.util.Base64.encodeToString(it.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP) }.toSet()
+        prefs.edit().putStringSet("history", encoded).apply()
+    }
+
+    fun saveImage() {
+        val image = bitmap ?: run { status = "Enter text first."; return }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            status = "Image saving is supported on Android 10 and newer."
+            return
+        }
+        try {
+            val name = "OnlineFlipper-QR-${System.currentTimeMillis()}.png"
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/OnlineFlipper")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("Could not create image")
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                if (!image.compress(Bitmap.CompressFormat.PNG, 100, output)) throw IllegalStateException("Could not write image")
+            } ?: throw IllegalStateException("Could not open image")
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+            rememberValue(value.trim())
+            status = "QR image saved to Pictures/OnlineFlipper."
+        } catch (_: Exception) {
+            status = "Could not save image. Check available storage."
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
+        Text("‹  BACK", color = Color.Black, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(16.dp))
+        Text("QR STUDIO", color = Color.Black, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Text("Create • copy • save • reuse", color = Color.DarkGray, fontSize = 12.sp)
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = { value = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Link or text") },
+            placeholder = { Text("https://example.com") },
+            minLines = 2,
+            maxLines = 4
+        )
+        Spacer(Modifier.height(10.dp))
+        if (bitmap != null) {
+            Image(bitmap.asImageBitmap(), "Generated QR code", Modifier.fillMaxWidth().padding(horizontal = 28.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("QR content", value.trim()))
+                    rememberValue(value.trim())
+                    status = "Content copied."
+                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("COPY TEXT") }
+                Button(onClick = { saveImage() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("SAVE PNG") }
+            }
+        } else {
+            Text("Your QR preview will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(status, color = Color.DarkGray, fontSize = 11.sp)
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text("RECENT QR CONTENT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("CLEAR", color = Color.DarkGray, fontSize = 10.sp, modifier = Modifier.clickable {
+                history.clear()
+                prefs.edit().remove("history").apply()
+                status = "History cleared."
+            })
+        }
+        if (history.isEmpty()) Text("Generated and saved items will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(history.toList(), key = { it }) { item ->
+                Row(
+                    Modifier.fillMaxWidth().background(Color(0xFFF0F0F0), RoundedCornerShape(10.dp))
+                        .clickable { value = item; status = "Loaded from history." }.padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(item, color = Color.Black, fontSize = 11.sp, maxLines = 2, modifier = Modifier.weight(1f))
+                    Text("USE", color = Color.DarkGray, fontSize = 10.sp)
+                }
             }
         }
     }
