@@ -410,7 +410,7 @@ private fun NfcScreen(onBack: () -> Unit) {
 @Composable
 private fun InfraredScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val ir = remember { context.getSystemService(ComponentActivity.CONSUMER_IR_SERVICE) as? ConsumerIrManager }
+    val ir = remember { context.getSystemService(ConsumerIrManager::class.java) }
     val hasEmitter = remember { try { ir?.hasIrEmitter() == true } catch (_: Exception) { false } }
     val ranges = remember {
         try {
