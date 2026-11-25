@@ -1,24 +1,20 @@
-# NEXFLIP
+# Online flipper : Zero
 
-NEXFLIP is an Android companion app for connecting to and controlling compatible devices through supported interfaces.
+Android app for connecting to compatible devices you own or are authorized to manage.
 
-## Planned modules
+## Implemented integrations
 
-- Bluetooth device discovery and supported-device controls
-- Wi-Fi / local-network integrations for devices with documented control interfaces
-- Infrared control through a phone IR blaster or compatible external accessory
-- NFC tag reading and permitted interactions
-- Smart-home integrations
-- Device discovery and connection status
+- Bluetooth Low Energy: scan, pair, connect, list discovered GATT services and disconnect.
+- NFC: read compatible NDEF tags.
+- Infrared: detect the phone's IR emitter and supported carrier ranges.
+- Wi-Fi: discover local mDNS services such as HTTP devices, printers, Cast, AirPlay and HomeKit advertisements; open HTTP device pages.
 
-## Current version
+## Limits
 
-The first Android project scaffold and dark Flipper-inspired interface are in place. The module screens are currently interface previews; real device integrations will be added module by module.
+A connection does not automatically grant control. Each device needs its own supported protocol and pairing. Generic power-off commands do not exist across all brands. Unknown Bluetooth writes are not sent.
 
 ## Build
 
-The GitHub Actions workflow builds a debug APK on pushes to `main`. Open the repository's **Actions** tab, select the latest successful **Build NEXFLIP APK** run, and download the `NEXFLIP-debug` artifact.
+GitHub Actions builds a debug APK on pushes to `main`. Download the `Online-Flipper-Zero-debug` artifact from the latest successful workflow run.
 
-## Safety
-
-Use NEXFLIP only with devices and networks you own or are explicitly authorized to manage. The app will use supported pairing and control interfaces; it is not designed to bypass locks, access controls, or network security.
+Use only with devices and networks you own or have permission to manage.
