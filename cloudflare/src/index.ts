@@ -79,6 +79,7 @@ export class PairingSession {
         clientHash: null,
         revoked: false,
       });
+      if (input.duration === "24h") await this.state.storage.setAlarm(now + 86400000);
       return json({ ok: true });
     }
 
@@ -94,11 +95,12 @@ export class PairingSession {
       if (!body?.joinCode || await digest(body.joinCode) !== session.joinCodeHash) {
         return json({ error: "invalid QR invitation" }, 401);
       }
-      if (session.clientHash) return json({ error: "a device is already paired" }, 409);
+      if (session.clientHash || session.pending) return json({ error: "invitation already used or a device is already paired" }, 409);
       const requestToken = randomToken(32);
       const requestId = randomToken(8);
       await this.state.storage.put("session", {
         ...session,
+        joinCodeHash: null,
         pending: { requestId, requestHash: await digest(requestToken), deviceName: (body.deviceName || "Android device").slice(0, 48) },
       });
       return json({ requestId, requestToken, status: "waiting_for_owner" }, 202);
@@ -123,11 +125,8 @@ export class PairingSession {
     }
 
     if (url.pathname === "/status" && request.method === "GET") {
-      if (request.headers.get("authorization") !== "Bearer " + (await this.state.storage.get<string>("ownerToken"))) {
-        // Owner tokens are verified by their hash via the dedicated header below.
-        const supplied = request.headers.get("x-owner-token") || "";
-        if (!supplied || await digest(supplied) !== session.ownerHash) return json({ error: "owner authorization required" }, 401);
-      }
+      const supplied = request.headers.get("x-owner-token") || "";
+      if (!supplied || await digest(supplied) !== session.ownerHash) return json({ error: "owner authorization required" }, 401);
       return json({
         status: session.clientHash ? "paired" : session.pending ? "approval_pending" : "waiting",
         pendingRequest: session.pending ? { requestId: session.pending.requestId, deviceName: session.pending.deviceName } : null,
@@ -146,7 +145,10 @@ export class PairingSession {
 
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       const token = url.searchParams.get("token") || "";
-      if (!session.clientHash || await digest(token) !== session.clientHash) return json({ error: "device authorization required" }, 401);
+      const tokenHash = await digest(token);
+      const isOwner = tokenHash === session.ownerHash;
+      const isPairedDevice = !!session.clientHash && tokenHash === session.clientHash;
+      if (!isOwner && !isPairedDevice) return json({ error: "device authorization required" }, 401);
       const pair = new WebSocketPair();
       const client = pair[0];
       const server = pair[1];
@@ -165,5 +167,14 @@ export class PairingSession {
       return new Response(null, { status: 101, webSocket: client });
     }
     return json({ error: "not found" }, 404);
+  }
+
+  async alarm(): Promise<void> {
+    const session = await this.state.storage.get<any>("session");
+    if (!session || session.revoked) return;
+    if (session.expiresAt && Date.now() >= session.expiresAt) {
+      await this.state.storage.put("session", { ...session, revoked: true, clientHash: null, clientToken: null, pending: null });
+      for (const socket of this.sockets) socket.close(1000, "Session expired");
+    }
   }
 }
