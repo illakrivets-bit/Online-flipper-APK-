@@ -4,13 +4,13 @@ This folder contains the Cloudflare Worker used for consent-based device pairing
 
 ## What it currently implements
 
-- Create a pairing session in `permanent` or `24h` mode.
+- Create a pairing session with a fixed 24-hour lifetime.
 - Return a QR payload containing a one-time invitation code (never the owner token).
 - A second device can request to join.
 - The owner must approve the exact pending request.
 - The approved device receives a separate access token.
 - Revoke a session at any time.
-- A 24-hour session expires automatically when accessed after its deadline.
+- A 24-hour session expires automatically at its deadline, and the owner can revoke it earlier.
 - WebSocket relay accepts only small, allow-listed event types.
 
 This is a pairing/transport foundation, **not a general-purpose remote-control agent**. It does not provide shell access, hidden monitoring, screen capture, accessibility control, or arbitrary commands. Add narrowly scoped features only when the device owner explicitly enables and confirms them.
@@ -28,7 +28,7 @@ The first deployment creates the Durable Object SQLite class from the migration 
 ## API
 
 - `GET /health`
-- `POST /api/sessions` body: `{"duration":"permanent"}` or `{"duration":"24h"}`
+- `POST /api/sessions` body: `{"duration":"24h"}`
 - `POST /api/sessions/:id/join` body: `{"joinCode":"...","deviceName":"My phone"}`
 - `POST /api/sessions/:id/join/status` body: `{"requestToken":"..."}`
 - `POST /api/sessions/:id/approve` body: `{"ownerToken":"...","requestId":"..."}`
