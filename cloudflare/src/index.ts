@@ -108,11 +108,15 @@ export class PairingSession {
 
     if (url.pathname === "/join/status" && request.method === "POST") {
       const body = await request.json().catch(() => null) as { requestToken?: string } | null;
-      if (!body?.requestToken || !session.pending || await digest(body.requestToken) !== session.pending.requestHash) {
-        return json({ error: "invalid join request" }, 401);
+      if (!body?.requestToken) return json({ error: "invalid join request" }, 401);
+      const requestHash = await digest(body.requestToken);
+      if (session.pending && requestHash === session.pending.requestHash) {
+        return json({ status: "waiting_for_owner" }, 200);
       }
-      if (!session.clientToken) return json({ status: "waiting_for_owner" }, 200);
-      return json({ status: "approved", accessToken: session.clientToken }, 200);
+      if (session.approvedRequestHash && requestHash === session.approvedRequestHash && session.clientToken) {
+        return json({ status: "approved", accessToken: session.clientToken }, 200);
+      }
+      return json({ error: "invalid or expired join request" }, 401);
     }
 
     if (url.pathname === "/approve" && request.method === "POST") {
@@ -120,7 +124,7 @@ export class PairingSession {
       if (!body?.ownerToken || await digest(body.ownerToken) !== session.ownerHash) return json({ error: "owner authorization required" }, 401);
       if (!session.pending || body.requestId !== session.pending.requestId) return json({ error: "pending request not found" }, 404);
       const accessToken = randomToken(32);
-      await this.state.storage.put("session", { ...session, clientToken: accessToken, clientHash: await digest(accessToken), pending: null });
+      await this.state.storage.put("session", { ...session, clientToken: accessToken, clientHash: await digest(accessToken), approvedRequestHash: session.pending.requestHash, pending: null });
       return json({ status: "paired", deviceName: session.pending.deviceName });
     }
 
