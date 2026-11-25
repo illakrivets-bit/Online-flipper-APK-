@@ -25,8 +25,8 @@ export default {
     if (url.pathname === "/health") return json({ ok: true, service: "online-flipper-pairing" });
     if (url.pathname === "/api/sessions" && request.method === "POST") {
       const body = await request.json().catch(() => null) as { duration?: string } | null;
-      if (!body || !["permanent", "24h"].includes(body.duration ?? "")) {
-        return json({ error: "duration must be permanent or 24h" }, 400);
+      if (!body || body.duration !== "24h") {
+        return json({ error: "Only 24-hour access sessions are supported" }, 400);
       }
       const id = randomToken(12);
       const ownerToken = randomToken(32);
@@ -38,7 +38,7 @@ export default {
         body: JSON.stringify({
           ownerHash: await digest(ownerToken),
           joinCodeHash: await digest(joinCode),
-          duration: body.duration,
+          duration: "24h",
         }),
       });
       if (!response.ok) return json({ error: "could not create session" }, 500);
@@ -47,7 +47,7 @@ export default {
         ownerToken,
         qrPayload: JSON.stringify({ v: 1, service: "online-flipper-zero", sessionId: id, joinCode }),
         duration: body.duration,
-        expiresInSeconds: body.duration === "24h" ? 86400 : null,
+        expiresInSeconds: 86400,
       }, 201);
     }
     const match = url.pathname.match(/^\/api\/sessions\/([a-f0-9]+)(\/.*)?$/);
