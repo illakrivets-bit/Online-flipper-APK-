@@ -147,6 +147,14 @@ export class PairingSession {
       return json({ status: "paired", deviceName: session.pending.deviceName });
     }
 
+    if (url.pathname === "/deny" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { ownerToken?: string; requestId?: string } | null;
+      if (!body?.ownerToken || await digest(body.ownerToken) !== session.ownerHash) return json({ error: "owner authorization required" }, 401);
+      if (!session.pending || body.requestId !== session.pending.requestId) return json({ error: "pending request not found" }, 404);
+      await this.state.storage.put("session", { ...session, pending: null, joinCodeHash: null });
+      return json({ status: "denied" });
+    }
+
     if (url.pathname === "/revoke" && request.method === "POST") {
       const body = await request.json().catch(() => null) as { ownerToken?: string } | null;
       if (!body?.ownerToken || await digest(body.ownerToken) !== session.ownerHash) return json({ error: "owner authorization required" }, 401);
