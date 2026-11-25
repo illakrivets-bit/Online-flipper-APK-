@@ -34,6 +34,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 private val Background = Color(0xFF080B0A)
 private val Panel = Color(0xFF141A17)
@@ -87,7 +91,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 var selected by remember { mutableStateOf<Module?>(null) }
-                Surface(Modifier.fillMaxSize(), color = Background) {
+                Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), color = Background) {
                     if (selected == null) HomeScreen { selected = it }
                     else if (selected?.name == "Bluetooth" || selected?.name == "Device Scanner") {
                         BluetoothScreen(onBack = { selected = null })
@@ -110,51 +114,60 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun HomeScreen(onSelect: (Module) -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().background(Background).padding(20.dp)
-    ) {
+    val activity = LocalContext.current as ComponentActivity
+    var qrStatus by remember { mutableStateOf("Scan a device QR code to open its connection page.") }
+    Column(Modifier.fillMaxSize().background(Background).padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("ONLINE", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-            Text(" FLIPPER : ZERO", color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            Text("ONLINE", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text(" FLIPPER : ZERO", color = Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             Text("ANDROID", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.height(22.dp))
-        Column(
-            Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp)).padding(17.dp)
-        ) {
-            Text("DEVICE CONTROL", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text("Your devices. One place.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-            Text("Bluetooth scan and connection are enabled", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(14.dp))
+        Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+            Text("DEVICE CONNECTION", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text("Connect your devices.", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text("Bluetooth, local Wi-Fi and QR.", color = Muted, fontSize = 11.sp)
         }
-        Spacer(Modifier.height(22.dp))
-        Text("MODULES", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp))
-        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            gridItems(modules) { module ->
-                Column(
-                    Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp))
-                        .clickable { onSelect(module) }.padding(15.dp)
-                ) {
-                    Text(module.symbol, color = Accent, fontSize = 25.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Text(module.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(5.dp))
-                    Text(module.description, color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+        Spacer(Modifier.height(14.dp))
+        Button(onClick = {
+            GmsBarcodeScanning.getClient(activity).startScan()
+                .addOnSuccessListener { barcode ->
+                    val raw = barcode.rawValue?.trim().orEmpty()
+                    val uri = runCatching { Uri.parse(raw) }.getOrNull()
+                    if (uri != null && (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()) {
+                        qrStatus = "Opening device page…"
+                        runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                            .onFailure { qrStatus = "Could not open this address." }
+                    } else qrStatus = "Unsupported QR. Use a device web address (http/https)."
                 }
+                .addOnCanceledListener { qrStatus = "QR scan cancelled." }
+                .addOnFailureListener { qrStatus = "QR scanner unavailable. Try again." }
+        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)) {
+            Text("Scan QR to connect")
+        }
+        Text(qrStatus, color = Muted, fontSize = 10.sp)
+        Spacer(Modifier.height(14.dp))
+        Text("CONNECTIONS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            Module("Bluetooth", "ᛒ", "Find and connect BLE devices", "Bluetooth Low Energy scanner"),
+            Module("Wi-Fi", "⌁", "Find devices on this network", "Local network service discovery")
+        ).forEach { module ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 9.dp).background(Panel, RoundedCornerShape(14.dp)).clickable { onSelect(module) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(module.symbol, color = Accent, fontSize = 23.sp)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(module.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(module.description, color = Muted, fontSize = 10.sp)
+                }
+                Text("›", color = Accent, fontSize = 22.sp)
             }
         }
-        Text("Use only with devices you own or may manage.", color = Muted, fontSize = 10.sp)
+        Spacer(Modifier.weight(1f))
+        Text("Only connect to devices you own or are allowed to manage.", color = Muted, fontSize = 9.sp)
     }
 }
-
 @Composable
 private fun BluetoothScreen(onBack: () -> Unit) {
     val context = LocalContext.current
