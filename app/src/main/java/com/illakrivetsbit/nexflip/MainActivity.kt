@@ -128,7 +128,7 @@ private fun OnlineFlipperApp(activity: MainActivity) {
     LaunchedEffect(companion?.id, companion?.accessToken) {
         val current = companion ?: return@LaunchedEffect
         if (current.accessToken == null) {
-            while (companion?.accessToken == null) {
+            while (companion?.accessToken == null && companion?.status != "Приглашение истекло") {
                 RemoteConnection.joinStatus(current.id, current.requestToken) { result ->
                     result.onSuccess { response ->
                         if (response.optString("status") == "approved") {
