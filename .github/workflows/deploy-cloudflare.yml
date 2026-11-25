@@ -2,11 +2,6 @@ name: Deploy Online Flipper : Zero pairing service
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "cloudflare/**"
-      - ".github/workflows/deploy-cloudflare.yml"
 
 jobs:
   deploy:
