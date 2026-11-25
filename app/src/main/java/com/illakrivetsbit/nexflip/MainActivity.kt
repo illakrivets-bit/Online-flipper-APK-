@@ -14,6 +14,11 @@ import android.os.Bundle
 import android.nfc.NfcAdapter
 import android.nfc.tech.Ndef
 import android.hardware.ConsumerIrManager
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
+import android.content.Intent
+import android.net.Uri
 import java.nio.charset.Charset
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,10 +66,10 @@ private data class Module(
 
 private val modules = listOf(
     Module("Bluetooth", "ᛒ", "Nearby device connections", "Scan for nearby Bluetooth Low Energy devices and connect to compatible peripherals."),
-    Module("Wi-Fi", "⌁", "Local network devices", "Next integration: discover devices on your own Wi-Fi network and use their supported local-control APIs."),
+    Module("Wi-Fi", "⌁", "Find devices on your Wi-Fi", "Discover services advertised by devices on your local network and open supported web interfaces."),
     Module("Infrared", "◉", "TVs and projectors", "Requires a phone with an IR transmitter or a supported external IR accessory. Device-specific remote profiles will be added."),
     Module("NFC / RFID", "▦", "Read compatible NFC tags", "NFC reading requires an NFC-equipped phone. Access cards and security credentials are not copied."),
-    Module("Smart Home", "⌂", "Your home devices", "Device control will use official pairing and supported integrations for your own smart-home equipment."),
+    Module("Smart Home", "⌂", "Home device services", "Discover local smart-home services. Direct controls require the device maker’s supported protocol and pairing."),
     Module("Device Scanner", "⌕", "Bluetooth LE discovery", "Find nearby devices that advertise Bluetooth Low Energy services.")
 )
 
@@ -85,7 +90,7 @@ class MainActivity : ComponentActivity() {
                     if (selected == null) HomeScreen { selected = it }
                     else if (selected?.name == "Bluetooth" || selected?.name == "Device Scanner") {
                         BluetoothScreen(onBack = { selected = null })
-                    } else if (selected?.name == "NFC / RFID") {
+                    } else if (selected?.name == "Wi-Fi") {\n                        WifiScreen(onBack = { selected = null })\n                    } else if (selected?.name == "Smart Home") {\n                        WifiScreen(onBack = { selected = null })\n                    } else if (selected?.name == "NFC / RFID") {
                         NfcScreen(onBack = { selected = null })
                     } else if (selected?.name == "Infrared") {
                         InfraredScreen(onBack = { selected = null })
@@ -107,7 +112,7 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
             Text("NEX", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
             Text("FLIP", color = Accent, fontSize = 29.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
-            Text("MOBILE LAB", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("ANDROID", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(22.dp))
         Column(
@@ -261,7 +266,7 @@ private fun BluetoothScreen(onBack: () -> Unit) {
         if (connectedName.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text("Connected: $connectedName", color = Accent, fontSize = 13.sp)
-            Text("This peripheral is connected. Device controls depend on its supported GATT service.", color = Muted, fontSize = 11.sp)
+            Text("GATT services: ${gattServices.size}", color = Muted, fontSize = 11.sp)\n            gattServices.take(6).forEach { uuid -> Text(uuid, color = Muted, fontSize = 9.sp) }\n            Button(onClick = { try { activeGatt?.disconnect(); activeGatt?.close() } catch (_: Exception) {}; activeGatt = null; connectedName = ""; gattServices = emptyList(); status = "Disconnected" }, colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)) { Text("Disconnect") }
         }
         Spacer(Modifier.height(14.dp))
         Text("FOUND DEVICES  •  ${devices.size}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -435,5 +440,138 @@ private fun InfraredScreen(onBack: () -> Unit) {
             else "Use a compatible external IR accessory. The phone alone cannot send infrared without IR hardware.",
             color = Muted, fontSize = 13.sp, lineHeight = 20.sp
         )
+    }
+}
+
+private data class NetworkDevice(
+    val name: String,
+    val type: String,
+    val host: String,
+    val port: Int
+)
+
+@Composable
+private fun WifiScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val activity = context as ComponentActivity
+    val nsd = remember { context.getSystemService(NsdManager::class.java) }
+    val wifi = remember { context.applicationContext.getSystemService(WifiManager::class.java) }
+    val found = remember { mutableStateListOf<NetworkDevice>() }
+    var status by remember { mutableStateOf("Scan your current Wi-Fi network") }
+    var running by remember { mutableStateOf(false) }
+    val listeners = remember { mutableStateListOf<NsdManager.DiscoveryListener>() }
+    var multicastLock by remember { mutableStateOf<WifiManager.MulticastLock?>(null) }
+
+    fun stopDiscovery() {
+        listeners.toList().forEach { listener ->
+            try { nsd?.stopServiceDiscovery(listener) } catch (_: Exception) {}
+        }
+        listeners.clear()
+        try { multicastLock?.let { if (it.isHeld) it.release() } } catch (_: Exception) {}
+        multicastLock = null
+        running = false
+    }
+
+    fun startDiscovery() {
+        if (nsd == null) {
+            status = "Network discovery unavailable"
+            return
+        }
+        stopDiscovery()
+        found.clear()
+        try {
+            val lock = wifi?.createMulticastLock("online_flipper_zero_nsd")
+            lock?.setReferenceCounted(false)
+            lock?.acquire()
+            multicastLock = lock
+        } catch (_: Exception) {}
+        val types = listOf("_http._tcp.", "_ipp._tcp.", "_googlecast._tcp.", "_airplay._tcp.", "_hap._tcp.")
+        types.forEach { serviceType ->
+            val listener = object : NsdManager.DiscoveryListener {
+                override fun onDiscoveryStarted(regType: String) {}
+                override fun onServiceFound(service: NsdServiceInfo) {
+                    try {
+                        nsd.resolveService(service, object : NsdManager.ResolveListener {
+                            override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) {}
+                            override fun onServiceResolved(info: NsdServiceInfo) {
+                                val host = info.host?.hostAddress ?: return
+                                val item = NetworkDevice(info.serviceName, info.serviceType, host, info.port)
+                                activity.runOnUiThread {
+                                    if (found.none { it.name == item.name && it.host == item.host && it.port == item.port }) found.add(item)
+                                }
+                            }
+                        })
+                    } catch (_: Exception) {}
+                }
+                override fun onServiceLost(service: NsdServiceInfo) {
+                    activity.runOnUiThread { found.removeAll { it.name == service.serviceName } }
+                }
+                override fun onDiscoveryStopped(serviceType: String) {}
+                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                    try { nsd.stopServiceDiscovery(this) } catch (_: Exception) {}
+                }
+                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                    try { nsd.stopServiceDiscovery(this) } catch (_: Exception) {}
+                }
+            }
+            try {
+                nsd.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, listener)
+                listeners.add(listener)
+            } catch (_: Exception) {}
+        }
+        running = listeners.isNotEmpty()
+        status = if (running) "Searching local network…" else "Could not start discovery"
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { stopDiscovery() }
+    }
+
+    Column(Modifier.fillMaxSize().background(Background).padding(18.dp)) {
+        Text("‹  BACK", color = Accent, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(18.dp))
+        Text("WI-FI DEVICES", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+        Text(status, color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { if (running) { stopDiscovery(); status = "Scan stopped" } else startDiscovery() },
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
+            ) { Text(if (running) "Stop" else "Scan network") }
+            Button(
+                onClick = {
+                    try { activity.startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)) }
+                    catch (_: Exception) { status = "Open Wi-Fi settings manually" }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)
+            ) { Text("Wi-Fi settings") }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("FOUND SERVICES • ${found.size}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        if (found.isEmpty()) {
+            Text("Only devices advertising a supported local service appear here.", color = Muted, fontSize = 12.sp)
+        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(found, key = { "${it.name}-${it.host}-${it.port}" }) { item ->
+                Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(12.dp)) {
+                    Text(item.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("${item.host}:${item.port} • ${item.type}", color = Muted, fontSize = 10.sp)
+                    if (item.type.contains("_http._tcp") || item.type.contains("_ipp._tcp")) {
+                        Spacer(Modifier.height(6.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    val uri = Uri.parse("http://${item.host}:${item.port}")
+                                    activity.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                } catch (_: Exception) { status = "Could not open device page" }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
+                        ) { Text("Open device page") }
+                    }
+                }
+            }
+        }
     }
 }
