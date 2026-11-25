@@ -232,6 +232,12 @@ private fun BluetoothScreen(onBack: () -> Unit) {
         else status = "Permission denied"
     }
 
+    DisposableEffect(activeGatt) {
+        onDispose {
+            try { activeGatt?.disconnect(); activeGatt?.close() } catch (_: Exception) {}
+        }
+    }
+
     DisposableEffect(scanning, adapter) {
         onDispose {
             if (scanning && hasPermissions()) {
