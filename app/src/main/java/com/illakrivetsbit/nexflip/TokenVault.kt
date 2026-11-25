@@ -39,11 +39,12 @@ object TokenVault {
 
     fun decrypt(value: String): String? = try {
         val packed = Base64.decode(value, Base64.NO_WRAP)
-        if (packed.size <= 12) return null
-        val iv = packed.copyOfRange(0, 12)
-        val encrypted = packed.copyOfRange(12, packed.size)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
-        String(cipher.doFinal(encrypted), Charsets.UTF_8)
+        if (packed.size <= 12) null else {
+            val iv = packed.copyOfRange(0, 12)
+            val encrypted = packed.copyOfRange(12, packed.size)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+            String(cipher.doFinal(encrypted), Charsets.UTF_8)
+        }
     } catch (_: Exception) { null }
 }
