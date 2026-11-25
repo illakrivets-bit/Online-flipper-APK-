@@ -153,12 +153,12 @@ private fun OnlineFlipperApp(activity: MainActivity) {
         val current = companion
         if (current?.accessToken != null) {
             socket?.close(1000, "Reconnect")
-            socket = RemoteConnection.connect(current.id, current.accessToken, { packet ->
+            socket = RemoteConnection.connect(current.id, current.accessToken, { activeSocket, packet ->
                 if (packet.optString("type") == "command") {
                     val id = packet.optString("id")
                     val action = packet.optString("action")
                     val result = executeRemoteAction(context, action)
-                    RemoteConnection.sendResult(socket, id, result)
+                    RemoteConnection.sendResult(activeSocket, id, result)
                 }
             }, { state ->
                 activity.runOnUiThread {
@@ -172,7 +172,7 @@ private fun OnlineFlipperApp(activity: MainActivity) {
     LaunchedEffect(selected?.id) {
         val current = selected ?: return@LaunchedEffect
         socket?.close(1000, "Switch device")
-        socket = RemoteConnection.connect(current.id, current.ownerToken, { packet ->
+        socket = RemoteConnection.connect(current.id, current.ownerToken, { _, packet ->
             if (packet.optString("type") == "result" || packet.optString("type") == "device_status") {
                 val payload = packet.optJSONObject("payload") ?: JSONObject()
                 val line = buildString {
