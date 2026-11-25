@@ -447,16 +447,23 @@ private fun makeQr(value: String): Bitmap? = try {
     }
 } catch (_: Exception) { null }
 
-private fun parseInvite(raw: String): PairInvite? = try {
-    val json = JSONObject(raw)
-    if (json.optString("app") != "nexflip" || json.optInt("version") != 1) return null
-    val id = json.getString("session")
-    val key = json.getString("key")
-    val createdAt = json.getLong("createdAt")
-    val expiresAt = json.getLong("expiresAt")
-    if (id.isBlank() || key.length < 32 || expiresAt <= createdAt) null
-    else PairInvite(id, key, createdAt, expiresAt)
-} catch (_: Exception) { null }
+private fun parseInvite(raw: String): PairInvite? {
+    return try {
+        val json = JSONObject(raw)
+        if (json.optString("app") != "nexflip" || json.optInt("version") != 1) {
+            null
+        } else {
+            val id = json.getString("session")
+            val key = json.getString("key")
+            val createdAt = json.getLong("createdAt")
+            val expiresAt = json.getLong("expiresAt")
+            if (id.isBlank() || key.length < 32 || expiresAt <= createdAt) null
+            else PairInvite(id, key, createdAt, expiresAt)
+        }
+    } catch (_: Exception) {
+        null
+    }
+}
 
 private fun loadSavedDevices(context: Context): List<SavedDevice> {
     return try {
