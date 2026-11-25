@@ -1,21 +1,33 @@
 # Online Flipper : Zero
 
-Android application for consent-based pairing and management of devices you own or are authorized to manage.
+Android-to-Android pairing and a small, consent-based remote action panel.
 
-## Current build
+## Implemented in the current source
 
-- Exact launcher name: **Online Flipper : Zero**.
-- Dark monochrome Android interface.
-- QR invitation creation and scanning.
-- Locally saved device list.
-- Device detail/control-panel layout.
+- Exact app name: **Online Flipper : Zero**.
+- Black-and-white Compose interface.
+- Server-created, one-time QR invitations (24-hour session).
+- QR scanning on the companion phone.
+- Explicit approval on the phone that created the invitation.
+- HTTPS API and authenticated WebSocket transport.
+- Saved controller devices; owner tokens are encrypted with Android Keystore.
+- Allow-listed remote actions: request battery/device/storage status, vibrate, start a short sound signal, stop the signal.
+- Revoke/unpair support.
+- Companion only accepts commands while its app is open and connected.
 
-## Current limitations
+No shell, hidden access, screen capture, remote app launching, or arbitrary command execution is included. The Android operating system retains control over protected functions.
 
-The Android client currently creates and parses QR invitations locally. It does not yet establish a live remote-control session. The Cloudflare Worker in `cloudflare/` is a pairing foundation and must be deployed and connected to the Android app. A second Android installation with explicit owner approval and permissions is also required.
+## Required setup before pairing can work
 
-The UI must not present unsupported actions as working. Android system permissions and user confirmation cannot be bypassed. No hidden screen capture, stealth access, or arbitrary remote shell is provided.
+1. Add GitHub repository Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+2. Run the **Deploy Online Flipper : Zero pairing service** workflow.
+3. Copy the deployed Worker URL (the `https://...workers.dev` address).
+4. Replace `RemoteConnection.BASE_URL` in `app/src/main/java/com/illakrivetsbit/nexflip/RemoteConnection.kt` with that exact URL.
+5. Commit the URL change and wait for a successful Android build.
+6. Install the same new APK on both Android phones. Both phones need internet access.
+7. On the controller phone, tap **Создать QR-код**. On the second phone, open the app and scan it. Approve the device on the controller phone.
+8. Keep the companion app open for live commands. Closing it disconnects the live channel.
 
 ## Build
 
-GitHub Actions builds the debug APK. Download the `Online-Flipper-Zero-debug` artifact from a successful Android workflow run.
+GitHub Actions creates the debug APK as the `Online-Flipper-Zero-debug` artifact after a successful Android workflow run.
