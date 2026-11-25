@@ -1,4 +1,4 @@
-name: Deploy Online Flipper : Zero pairing service
+name: "Deploy Online Flipper : Zero pairing service"
 
 on:
   workflow_dispatch:
