@@ -49,7 +49,7 @@ object RemoteConnection {
         post("/api/sessions/$sessionId/revoke", JSONObject().put("ownerToken", ownerToken), callback)
     }
 
-    fun connect(sessionId: String, token: String, onMessage: (JSONObject) -> Unit, onState: (String) -> Unit): WebSocket {
+    fun connect(sessionId: String, token: String, onMessage: (WebSocket, JSONObject) -> Unit, onState: (String) -> Unit): WebSocket {
         val wsBase = BASE_URL.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
         val request = Request.Builder()
             .url("$wsBase/api/sessions/$sessionId/ws?token=$token")
@@ -57,7 +57,7 @@ object RemoteConnection {
         return http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) { onState("connected") }
             override fun onMessage(webSocket: WebSocket, text: String) {
-                try { onMessage(JSONObject(text)) } catch (_: Exception) { }
+                try { onMessage(webSocket, JSONObject(text)) } catch (_: Exception) { }
             }
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { onState("closing") }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { onState("disconnected") }
