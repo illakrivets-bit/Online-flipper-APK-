@@ -45,6 +45,11 @@ object RemoteConnection {
             JSONObject().put("ownerToken", ownerToken).put("requestId", requestId), callback)
     }
 
+    fun deny(sessionId: String, ownerToken: String, requestId: String, callback: (Result<JSONObject>) -> Unit) {
+        post("/api/sessions/$sessionId/deny",
+            JSONObject().put("ownerToken", ownerToken).put("requestId", requestId), callback)
+    }
+
     fun revoke(sessionId: String, ownerToken: String, callback: (Result<JSONObject>) -> Unit) {
         post("/api/sessions/$sessionId/revoke", JSONObject().put("ownerToken", ownerToken), callback)
     }
