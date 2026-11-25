@@ -90,7 +90,11 @@ class MainActivity : ComponentActivity() {
                     if (selected == null) HomeScreen { selected = it }
                     else if (selected?.name == "Bluetooth" || selected?.name == "Device Scanner") {
                         BluetoothScreen(onBack = { selected = null })
-                    } else if (selected?.name == "Wi-Fi") {\n                        WifiScreen(onBack = { selected = null })\n                    } else if (selected?.name == "Smart Home") {\n                        WifiScreen(onBack = { selected = null })\n                    } else if (selected?.name == "NFC / RFID") {
+                    } else if (selected?.name == "Wi-Fi") {
+                        WifiScreen(onBack = { selected = null })
+                    } else if (selected?.name == "Smart Home") {
+                        WifiScreen(onBack = { selected = null })
+                    } else if (selected?.name == "NFC / RFID") {
                         NfcScreen(onBack = { selected = null })
                     } else if (selected?.name == "Infrared") {
                         InfraredScreen(onBack = { selected = null })
@@ -266,7 +270,9 @@ private fun BluetoothScreen(onBack: () -> Unit) {
         if (connectedName.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text("Connected: $connectedName", color = Accent, fontSize = 13.sp)
-            Text("GATT services: ${gattServices.size}", color = Muted, fontSize = 11.sp)\n            gattServices.take(6).forEach { uuid -> Text(uuid, color = Muted, fontSize = 9.sp) }\n            Button(onClick = { try { activeGatt?.disconnect(); activeGatt?.close() } catch (_: Exception) {}; activeGatt = null; connectedName = ""; gattServices = emptyList(); status = "Disconnected" }, colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)) { Text("Disconnect") }
+            Text("GATT services: ${gattServices.size}", color = Muted, fontSize = 11.sp)
+            gattServices.take(6).forEach { uuid -> Text(uuid, color = Muted, fontSize = 9.sp) }
+            Button(onClick = { try { activeGatt?.disconnect(); activeGatt?.close() } catch (_: Exception) {}; activeGatt = null; connectedName = ""; gattServices = emptyList(); status = "Disconnected" }, colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)) { Text("Disconnect") }
         }
         Spacer(Modifier.height(14.dp))
         Text("FOUND DEVICES  •  ${devices.size}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -419,7 +425,7 @@ private fun InfraredScreen(onBack: () -> Unit) {
     val hasEmitter = remember { try { ir?.hasIrEmitter() == true } catch (_: Exception) { false } }
     val ranges = remember {
         try {
-            ir?.carrierFrequencies?.joinToString(", ") { "\${it.minFrequency / 1000}-\${it.maxFrequency / 1000} kHz" } ?: ""
+            ir?.carrierFrequencies?.joinToString(", ") { "${it.minFrequency / 1000}-${it.maxFrequency / 1000} kHz" } ?: ""
         } catch (_: Exception) { "" }
     }
     Column(Modifier.fillMaxSize().background(Background).padding(20.dp)) {
