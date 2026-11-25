@@ -1,19 +1,22 @@
-# Online flipper : Zero
+# NEXFLIP — Device Control
 
-A compact Android app for connecting to devices you own or are authorized to manage.
+NEXFLIP is being rebuilt as a focused Android companion for pairing and managing Android devices you own or are authorized to manage.
 
-## Main screen
-- Bluetooth LE: scan, pair, connect to compatible peripherals, inspect advertised GATT services and disconnect.
-- Wi-Fi: discover local devices that advertise supported mDNS services and open available web interfaces.
-- QR connect: scan a QR code containing an HTTP or HTTPS device page and open it.
-- QR Studio: create QR codes from links or text, copy QR content, save QR images as PNG, and revisit recent QR content from local history.
+## Current 0.3.0 build
 
-The interface uses Android safe-area insets so content stays clear of the status and navigation bars. The main screen keeps the core connection tools accessible.
+- Black-and-white interface with animated screen transitions.
+- One-tap QR invitation generation (24-hour expiry).
+- QR invitation scanning.
+- Locally saved device list.
+- Device detail page with a structured control-panel layout.
+- Saved devices remain on this phone after the app is closed.
 
-## Important limits
-A QR scan opens a device's web page; it does not magically pair with every device. Direct control requires the device maker's supported protocol and any required authorization. Unknown Bluetooth commands are not sent.
+## Important connection status
 
-QR history is stored locally on the device. PNG export uses the Android media library and is supported on Android 10 and newer.
+This build creates and reads local QR invitation payloads and saves scanned invitations. It does **not** yet establish a live device connection. The Cloudflare pairing worker must be deployed and connected to the Android client, and the second phone needs the NEXFLIP companion service with explicit Android permissions.
+
+The control panel is intentionally marked as locked until the secure connection and companion permissions are implemented. No hidden access, silent screen capture, or permission bypass is used.
 
 ## Build
-GitHub Actions builds a debug APK on pushes to main. Download the `Online-Flipper-Zero-debug` artifact from a successful workflow run.
+
+GitHub Actions builds the debug APK. Download the `Online-Flipper-Zero-debug` artifact from a successful Android workflow run.
