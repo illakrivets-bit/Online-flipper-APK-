@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NEXFLIP"
+rootProject.name = "OnlineFlipperZero"
 include(":app")
