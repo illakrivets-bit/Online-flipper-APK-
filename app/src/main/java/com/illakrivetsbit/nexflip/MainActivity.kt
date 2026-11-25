@@ -172,11 +172,11 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
     fun save() {
         prefs.edit().putStringSet("saved", saved.map { "${it.name}|${it.type}|${it.address}" }.toSet()).apply()
     }
-    Column(Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
-        Text("ONLINE FLIPPER : ZERO", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Black)
+    Column(Modifier.fillMaxSize().background(Background).padding(16.dp)) {
+        Text("ONLINE FLIPPER : ZERO", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(12.dp))
-        Text("DEVICE HUB", color = Color.Black, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-        Text("Connect • save • manage your devices", color = Color.DarkGray, fontSize = 11.sp)
+        Text("DEVICE HUB", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("QR pairing • device sessions • local tools", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(12.dp))
         Button(onClick = {
             GmsBarcodeScanning.getClient(activity).startScan()
@@ -194,27 +194,27 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
         }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) {
             Text("＋  SCAN QR / ADD DEVICE")
         }
-        Text(message, color = Color.DarkGray, fontSize = 10.sp)
+        Text(message, color = Muted, fontSize = 10.sp)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { onSelect(Module("QR Studio", "▦", "QR tools", "Create QR codes from links or text.")) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("QR STUDIO") }
             Button(onClick = { onSelect(Module("Bluetooth", "B", "Bluetooth", "Scan and connect to compatible BLE devices.")) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("Bluetooth") }
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.White)) { Text("Bluetooth") }
             Button(onClick = { onSelect(Module("Wi-Fi", "W", "Wi-Fi", "Find devices on your local network.")) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("Wi-Fi") }
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.White)) { Text("Wi-Fi") }
         }
         Spacer(Modifier.height(14.dp))
-        Text("SAVED DEVICES  •  ${saved.size}", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-        if (saved.isEmpty()) Text("Your saved devices will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+        Text("SAVED DEVICES  •  ${saved.size}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        if (saved.isEmpty()) Text("Your saved devices will appear here.", color = Muted, fontSize = 12.sp)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(saved, key = { "${it.type}-${it.address}" }) { item ->
-                Column(Modifier.fillMaxWidth().background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)).padding(12.dp)) {
-                    Text(item.name, color = Color.Black, fontWeight = FontWeight.Bold)
-                    Text("${item.type}  •  ${item.address}", color = Color.DarkGray, fontSize = 10.sp)
+                Column(Modifier.fillMaxWidth().background(Panel), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                    Text(item.name, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("${item.type}  •  ${item.address}", color = Muted, fontSize = 10.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { selectedQr = item }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("Show QR") }
-                        Button(onClick = { saved.remove(item); save() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.Black)) { Text("Remove") }
+                        Button(onClick = { saved.remove(item); save() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.White)) { Text("Remove") }
                     }
                 }
             }
@@ -222,10 +222,10 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
     }
     selectedQr?.let { item ->
         Dialog(onDismissRequest = { selectedQr = null }) {
-            Column(Modifier.background(Color.White, RoundedCornerShape(18.dp)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(item.name, color = Color.Black, fontWeight = FontWeight.Bold)
+            Column(Modifier.background(Panel, RoundedCornerShape(18.dp)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(item.name, color = Color.White, fontWeight = FontWeight.Bold)
                 qrBitmap(deviceQr(item))?.let { Image(it.asImageBitmap(), "Device QR code", Modifier.fillMaxWidth().padding(12.dp)) }
-                Text("Scan in Online Flipper : Zero on another device.", color = Color.DarkGray, fontSize = 10.sp)
+                Text("Scan in Online Flipper : Zero on another device.", color = Muted, fontSize = 10.sp)
                 Button(onClick = { selectedQr = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("CLOSE") }
             }
         }
@@ -285,12 +285,12 @@ private fun QrStudioScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
-        Text("‹  BACK", color = Color.Black, fontWeight = FontWeight.Bold,
+    Column(Modifier.fillMaxSize().background(Background).padding(16.dp)) {
+        Text("‹  BACK", color = Color.White, fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable { onBack() })
         Spacer(Modifier.height(16.dp))
-        Text("QR STUDIO", color = Color.Black, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Create • copy • save • reuse", color = Color.DarkGray, fontSize = 12.sp)
+        Text("QR STUDIO", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Text("Create • copy • save • reuse", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = value,
@@ -311,32 +311,32 @@ private fun QrStudioScreen(onBack: () -> Unit) {
                     rememberValue(value.trim())
                     status = "Content copied."
                 }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("COPY TEXT") }
-                Button(onClick = { saveImage() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("SAVE PNG") }
+                Button(onClick = { saveImage() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.White)) { Text("SAVE PNG") }
             }
         } else {
-            Text("Your QR preview will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+            Text("Your QR preview will appear here.", color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(8.dp))
-        Text(status, color = Color.DarkGray, fontSize = 11.sp)
+        Text(status, color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("RECENT QR CONTENT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-            Text("CLEAR", color = Color.DarkGray, fontSize = 10.sp, modifier = Modifier.clickable {
+            Text("RECENT QR CONTENT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("CLEAR", color = Muted, fontSize = 10.sp, modifier = Modifier.clickable {
                 history.clear()
                 prefs.edit().remove("history").apply()
                 status = "History cleared."
             })
         }
-        if (history.isEmpty()) Text("Generated and saved items will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+        if (history.isEmpty()) Text("Generated and saved items will appear here.", color = Muted, fontSize = 12.sp)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(history.toList(), key = { it }) { item ->
                 Row(
-                    Modifier.fillMaxWidth().background(Color(0xFFF0F0F0), RoundedCornerShape(10.dp))
+                    Modifier.fillMaxWidth().background(Panel), RoundedCornerShape(10.dp))
                         .clickable { value = item; status = "Loaded from history." }.padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(item, color = Color.Black, fontSize = 11.sp, maxLines = 2, modifier = Modifier.weight(1f))
-                    Text("USE", color = Color.DarkGray, fontSize = 10.sp)
+                    Text(item, color = Color.White, fontSize = 11.sp, maxLines = 2, modifier = Modifier.weight(1f))
+                    Text("USE", color = Muted, fontSize = 10.sp)
                 }
             }
         }
