@@ -1,4 +1,4 @@
-name: Build NEXFLIP APK
+name: Build Online flipper Zero APK
 
 on:
   push:
@@ -34,5 +34,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NEXFLIP-debug
+          name: Online-Flipper-Zero-debug
           path: app/build/outputs/apk/debug/app-debug.apk
