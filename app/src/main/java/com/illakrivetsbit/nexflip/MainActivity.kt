@@ -209,7 +209,7 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
         if (saved.isEmpty()) Text("Your saved devices will appear here.", color = Muted, fontSize = 12.sp)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(saved, key = { "${it.type}-${it.address}" }) { item ->
-                Column(Modifier.fillMaxWidth().background(Panel), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(12.dp)) {
                     Text(item.name, color = Color.White, fontWeight = FontWeight.Bold)
                     Text("${item.type}  •  ${item.address}", color = Muted, fontSize = 10.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -331,8 +331,10 @@ private fun QrStudioScreen(onBack: () -> Unit) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(history.toList(), key = { it }) { item ->
                 Row(
-                    Modifier.fillMaxWidth().background(Panel), RoundedCornerShape(10.dp))
-                        .clickable { value = item; status = "Loaded from history." }.padding(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .background(Panel, RoundedCornerShape(10.dp))
+                        .clickable { value = item; status = "Loaded from history." }
+                        .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(item, color = Color.White, fontSize = 11.sp, maxLines = 2, modifier = Modifier.weight(1f))
