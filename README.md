@@ -1,21 +1,20 @@
-# NEXFLIP — Device Control
+# Online Flipper : Zero
 
-NEXFLIP is being rebuilt as a focused Android companion for pairing and managing Android devices you own or are authorized to manage.
+Android application for consent-based pairing and management of devices you own or are authorized to manage.
 
-## Current 0.3.0 build
+## Current build
 
-- Black-and-white interface with animated screen transitions.
-- One-tap QR invitation generation (24-hour expiry).
-- QR invitation scanning.
+- Exact launcher name: **Online Flipper : Zero**.
+- Dark monochrome Android interface.
+- QR invitation creation and scanning.
 - Locally saved device list.
-- Device detail page with a structured control-panel layout.
-- Saved devices remain on this phone after the app is closed.
+- Device detail/control-panel layout.
 
-## Important connection status
+## Current limitations
 
-This build creates and reads local QR invitation payloads and saves scanned invitations. It does **not** yet establish a live device connection. The Cloudflare pairing worker must be deployed and connected to the Android client, and the second phone needs the NEXFLIP companion service with explicit Android permissions.
+The Android client currently creates and parses QR invitations locally. It does not yet establish a live remote-control session. The Cloudflare Worker in `cloudflare/` is a pairing foundation and must be deployed and connected to the Android app. A second Android installation with explicit owner approval and permissions is also required.
 
-The control panel is intentionally marked as locked until the secure connection and companion permissions are implemented. No hidden access, silent screen capture, or permission bypass is used.
+The UI must not present unsupported actions as working. Android system permissions and user confirmation cannot be bypassed. No hidden screen capture, stealth access, or arbitrary remote shell is provided.
 
 ## Build
 
