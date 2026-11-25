@@ -109,8 +109,8 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
         modifier = Modifier.fillMaxSize().background(Background).padding(20.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("NEX", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-            Text("FLIP", color = Accent, fontSize = 29.sp, fontWeight = FontWeight.Black)
+            Text("ONLINE", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Text(" FLIPPER : ZERO", color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
             Text("ANDROID", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
