@@ -41,3 +41,15 @@ The QR payload is JSON for the Android app to encode as a QR image. It is not a 
 ## Important next steps
 
 Before public deployment, add rate limiting at the edge, automated tests, log redaction, and an explicit owner-side approval UI in the Android app. Do not put owner tokens in QR codes, URLs, analytics, or logs.
+
+
+## GitHub Actions deployment
+
+The repository includes `.github/workflows/deploy-cloudflare.yml`. To enable deployment:
+
+1. In Cloudflare, create an API token with permission to edit Workers and access the account's Durable Objects.
+2. In GitHub, open **Settings → Secrets and variables → Actions**.
+3. Add repository secrets named `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+4. Run the **Deploy Online Flipper : Zero pairing service** workflow from the Actions tab.
+
+Deployment cannot run until those two secrets are added by the repository owner. After deployment, the Worker URL must be configured in the Android client before QR pairing can use it.
