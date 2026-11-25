@@ -19,6 +19,13 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.Color as AndroidColor
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.window.Dialog
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import java.nio.charset.Charset
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -112,62 +119,103 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private data class SavedDevice(val name: String, val type: String, val address: String)
+private fun deviceQr(d: SavedDevice) = "onlineflipper://device?name=${Uri.encode(d.name)}&type=${Uri.encode(d.type)}&address=${Uri.encode(d.address)}"
+private fun parseDeviceQr(raw: String): SavedDevice? {
+    return try {
+        val u = Uri.parse(raw)
+        if (u.scheme != "onlineflipper" || u.host != "device") null
+        else {
+            val n = u.getQueryParameter("name") ?: return null
+            val t = u.getQueryParameter("type") ?: return null
+            val a = u.getQueryParameter("address") ?: return null
+            if (n.isBlank() || a.isBlank()) null else SavedDevice(n, t, a)
+        }
+    } catch (_: Exception) { null }
+}
+private fun qrBitmap(value: String): Bitmap? = try {
+    val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 560, 560)
+    Bitmap.createBitmap(560, 560, Bitmap.Config.RGB_565).also { bmp ->
+        for (x in 0 until 560) for (y in 0 until 560)
+            bmp.setPixel(x, y, if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
+    }
+} catch (_: Exception) { null }
+
 @Composable
 private fun HomeScreen(onSelect: (Module) -> Unit) {
     val activity = LocalContext.current as ComponentActivity
-    var qrStatus by remember { mutableStateOf("Scan a device QR code to open its connection page.") }
-    Column(Modifier.fillMaxSize().background(Background).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("ONLINE", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text(" FLIPPER : ZERO", color = Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Text("ANDROID", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    val prefs = remember { activity.getSharedPreferences("device_hub", android.content.Context.MODE_PRIVATE) }
+    val saved = remember {
+        mutableStateListOf<SavedDevice>().apply {
+            prefs.getStringSet("saved", emptySet()).orEmpty().forEach { line ->
+                val p = line.split("|", limit = 3)
+                if (p.size == 3) add(SavedDevice(p[0], p[1], p[2]))
+            }
         }
-        Spacer(Modifier.height(14.dp))
-        Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
-            Text("DEVICE CONNECTION", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(5.dp))
-            Text("Connect your devices.", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            Text("Bluetooth, local Wi-Fi and QR.", color = Muted, fontSize = 11.sp)
-        }
-        Spacer(Modifier.height(14.dp))
+    }
+    var selectedQr by remember { mutableStateOf<SavedDevice?>(null) }
+    var message by remember { mutableStateOf("Scan a device QR to add it to your list.") }
+    fun save() {
+        prefs.edit().putStringSet("saved", saved.map { "${it.name}|${it.type}|${it.address}" }.toSet()).apply()
+    }
+    Column(Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
+        Text("ONLINE FLIPPER : ZERO", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(12.dp))
+        Text("DEVICE HUB", color = Color.Black, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Connect • save • manage your devices", color = Color.DarkGray, fontSize = 11.sp)
+        Spacer(Modifier.height(12.dp))
         Button(onClick = {
             GmsBarcodeScanning.getClient(activity).startScan()
                 .addOnSuccessListener { barcode ->
-                    val raw = barcode.rawValue?.trim().orEmpty()
-                    val uri = runCatching { Uri.parse(raw) }.getOrNull()
-                    if (uri != null && (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()) {
-                        qrStatus = "Opening device page…"
-                        runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                            .onFailure { qrStatus = "Could not open this address." }
-                    } else qrStatus = "Unsupported QR. Use a device web address (http/https)."
+                    val item = parseDeviceQr(barcode.rawValue.orEmpty())
+                    if (item == null) message = "QR code is not a supported device profile."
+                    else {
+                        if (saved.none { it.type == item.type && it.address == item.address }) saved.add(item)
+                        save()
+                        message = "${item.name} saved."
+                    }
                 }
-                .addOnCanceledListener { qrStatus = "QR scan cancelled." }
-                .addOnFailureListener { qrStatus = "QR scanner unavailable. Try again." }
-        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)) {
-            Text("Scan QR to connect")
+                .addOnCanceledListener { message = "Scan cancelled." }
+                .addOnFailureListener { message = "Scanner unavailable." }
+        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) {
+            Text("＋  SCAN QR / ADD DEVICE")
         }
-        Text(qrStatus, color = Muted, fontSize = 10.sp)
+        Text(message, color = Color.DarkGray, fontSize = 10.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onSelect(Module("Bluetooth", "B", "Bluetooth", "Scan and connect to compatible BLE devices.")) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("Bluetooth") }
+            Button(onClick = { onSelect(Module("Wi-Fi", "W", "Wi-Fi", "Find devices on your local network.")) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAEAEA), contentColor = Color.Black)) { Text("Wi-Fi") }
+        }
         Spacer(Modifier.height(14.dp))
-        Text("CONNECTIONS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        listOf(
-            Module("Bluetooth", "ᛒ", "Find and connect BLE devices", "Bluetooth Low Energy scanner"),
-            Module("Wi-Fi", "⌁", "Find devices on this network", "Local network service discovery")
-        ).forEach { module ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 9.dp).background(Panel, RoundedCornerShape(14.dp)).clickable { onSelect(module) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(module.symbol, color = Accent, fontSize = 23.sp)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(module.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(module.description, color = Muted, fontSize = 10.sp)
+        Text("SAVED DEVICES  •  ${saved.size}", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        if (saved.isEmpty()) Text("Your saved devices will appear here.", color = Color.DarkGray, fontSize = 12.sp)
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(saved, key = { "${it.type}-${it.address}" }) { item ->
+                Column(Modifier.fillMaxWidth().background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                    Text(item.name, color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("${item.type}  •  ${item.address}", color = Color.DarkGray, fontSize = 10.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { selectedQr = item }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("Show QR") }
+                        Button(onClick = { saved.remove(item); save() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.Black)) { Text("Remove") }
+                    }
                 }
-                Text("›", color = Accent, fontSize = 22.sp)
             }
         }
-        Spacer(Modifier.weight(1f))
-        Text("Only connect to devices you own or are allowed to manage.", color = Muted, fontSize = 9.sp)
+    }
+    selectedQr?.let { item ->
+        Dialog(onDismissRequest = { selectedQr = null }) {
+            Column(Modifier.background(Color.White, RoundedCornerShape(18.dp)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(item.name, color = Color.Black, fontWeight = FontWeight.Bold)
+                qrBitmap(deviceQr(item))?.let { Image(it.asImageBitmap(), "Device QR code", Modifier.fillMaxWidth().padding(12.dp)) }
+                Text("Scan in Online Flipper : Zero on another device.", color = Color.DarkGray, fontSize = 10.sp)
+                Button(onClick = { selectedQr = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) { Text("CLOSE") }
+            }
+        }
     }
 }
+
 @Composable
 private fun BluetoothScreen(onBack: () -> Unit) {
     val context = LocalContext.current
