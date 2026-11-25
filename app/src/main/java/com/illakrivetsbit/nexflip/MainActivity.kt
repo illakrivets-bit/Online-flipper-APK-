@@ -1,8 +1,20 @@
 package com.illakrivetsbit.nexflip
 
+import android.Manifest
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,10 +25,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,9 +37,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 
 private val Background = Color(0xFF080B0A)
 private val Panel = Color(0xFF141A17)
@@ -41,12 +56,19 @@ private data class Module(
 )
 
 private val modules = listOf(
-    Module("Bluetooth", "ᛒ", "Connect to nearby devices", "Find and connect to compatible Bluetooth devices you own or are allowed to manage. Actual controls depend on each device."),
-    Module("Wi-Fi", "⌁", "Local network devices", "Connect to supported devices on your own network using their official local-control features. This app will not break into networks."),
-    Module("Infrared", "◉", "TVs and projectors", "Send remote-control commands when your phone has an IR blaster or a supported external IR accessory is connected."),
-    Module("NFC / RFID", "▦", "Compatible tags", "Read supported NFC tags and use permitted tag interactions. This does not clone access cards or bypass locks."),
-    Module("Smart Home", "⌂", "Home device control", "A future module for devices you own, using their supported APIs and secure pairing."),
-    Module("Device Scanner", "⌕", "Discover nearby devices", "Show devices that are discoverable through Android's permitted Bluetooth and local-network APIs.")
+    Module("Bluetooth", "ᛒ", "Nearby device connections", "Scan for nearby Bluetooth Low Energy devices and connect to compatible peripherals."),
+    Module("Wi-Fi", "⌁", "Local network devices", "Next integration: discover devices on your own Wi-Fi network and use their supported local-control APIs."),
+    Module("Infrared", "◉", "TVs and projectors", "Requires a phone with an IR transmitter or a supported external IR accessory. Device-specific remote profiles will be added."),
+    Module("NFC / RFID", "▦", "Read compatible NFC tags", "NFC reading requires an NFC-equipped phone. Access cards and security credentials are not copied."),
+    Module("Smart Home", "⌂", "Your home devices", "Device control will use official pairing and supported integrations for your own smart-home equipment."),
+    Module("Device Scanner", "⌕", "Bluetooth LE discovery", "Find nearby devices that advertise Bluetooth Low Energy services.")
+)
+
+private data class NearbyDevice(
+    val device: BluetoothDevice,
+    val name: String,
+    val address: String,
+    val rssi: Int
 )
 
 class MainActivity : ComponentActivity() {
@@ -55,17 +77,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 var selected by remember { mutableStateOf<Module?>(null) }
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Background
-                ) {
-                    if (selected == null) {
-                        HomeScreen(onSelect = { selected = it })
+                Surface(Modifier.fillMaxSize(), color = Background) {
+                    if (selected == null) HomeScreen { selected = it }
+                    else if (selected?.name == "Bluetooth" || selected?.name == "Device Scanner") {
+                        BluetoothScreen(onBack = { selected = null })
                     } else {
-                        ModuleScreen(
-                            module = selected!!,
-                            onBack = { selected = null }
-                        )
+                        ModuleScreen(selected!!, onBack = { selected = null })
                     }
                 }
             }
@@ -76,10 +93,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun HomeScreen(onSelect: (Module) -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Background)
-            .padding(20.dp)
+        modifier = Modifier.fillMaxSize().background(Background).padding(20.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("NEX", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
@@ -89,37 +103,27 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
         }
         Spacer(Modifier.height(22.dp))
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Panel, RoundedCornerShape(18.dp))
-                .padding(17.dp)
+            Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp)).padding(17.dp)
         ) {
-            Text("DEVICE CONTROL CENTER", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("DEVICE CONTROL", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text("Your devices. One place.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Phone ready  •  External module not connected",
-                color = Muted,
-                fontSize = 12.sp
-            )
+            Text("Bluetooth scan and connection are enabled", color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(22.dp))
         Text("MODULES", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(modules) { module ->
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Panel, RoundedCornerShape(16.dp))
-                        .clickable { onSelect(module) }
-                        .padding(15.dp)
+                    Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp))
+                        .clickable { onSelect(module) }.padding(15.dp)
                 ) {
                     Text(module.symbol, color = Accent, fontSize = 25.sp)
                     Spacer(Modifier.height(12.dp))
@@ -129,56 +133,206 @@ private fun HomeScreen(onSelect: (Module) -> Unit) {
                 }
             }
         }
-        Text(
-            "Only connect to devices you own or have permission to control.",
-            color = Muted,
-            fontSize = 10.sp,
-            modifier = Modifier.padding(top = 12.dp)
-        )
+        Text("Use only with devices you own or may manage.", color = Muted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun BluetoothScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val activity = context as ComponentActivity
+    val manager = remember { context.getSystemService(BluetoothManager::class.java) }
+    val adapter = manager?.adapter
+    val devices = remember { mutableStateListOf<NearbyDevice>() }
+    var scanning by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf("Ready to scan") }
+    var connectedName by remember { mutableStateOf("") }
+    var activeGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
+
+    val permissions = remember {
+        buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(Manifest.permission.BLUETOOTH_SCAN)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            } else {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }.toTypedArray()
+    }
+    fun hasPermissions(): Boolean = permissions.all {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    val scanCallback = remember {
+        object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                val d = result.device
+                val name = try { d.name ?: result.scanRecord?.deviceName ?: "Unknown device" }
+                    catch (_: SecurityException) { "Bluetooth device" }
+                val entry = NearbyDevice(d, name, d.address, result.rssi)
+                activity.runOnUiThread {
+                    val index = devices.indexOfFirst { it.address == entry.address }
+                    if (index >= 0) devices[index] = entry else devices.add(entry)
+                }
+            }
+            override fun onScanFailed(errorCode: Int) {
+                activity.runOnUiThread {
+                    scanning = false
+                    status = "Scan failed ($errorCode)"
+                }
+            }
+        }
+    }
+
+    fun startScan() {
+        if (!hasPermissions()) {
+            status = "Allow Nearby devices permission"
+            return
+        }
+        val scanner = adapter?.bluetoothLeScanner
+        if (adapter == null || scanner == null || !adapter.isEnabled) {
+            status = "Turn Bluetooth on first"
+            return
+        }
+        try {
+            devices.clear()
+            scanner.startScan(scanCallback)
+            scanning = true
+            status = "Scanning nearby BLE devices…"
+        } catch (e: SecurityException) {
+            status = "Bluetooth permission required"
+        } catch (e: Exception) {
+            status = "Could not start scan"
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        if (result.values.all { it }) startScan()
+        else status = "Permission denied"
+    }
+
+    DisposableEffect(scanning, adapter) {
+        onDispose {
+            if (scanning && hasPermissions()) {
+                try { adapter?.bluetoothLeScanner?.stopScan(scanCallback) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(Background).padding(18.dp)) {
+        Text("‹  BACK", color = Accent, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(18.dp))
+        Text("BLUETOOTH", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Text(status, color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    if (scanning) {
+                        try { adapter?.bluetoothLeScanner?.stopScan(scanCallback) } catch (_: Exception) {}
+                        scanning = false
+                        status = "Scan stopped"
+                    } else if (hasPermissions()) startScan()
+                    else permissionLauncher.launch(permissions)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
+            ) { Text(if (scanning) "Stop scan" else "Scan devices") }
+            Button(
+                onClick = {
+                    try {
+                        val intent = android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                        activity.startActivity(intent)
+                    } catch (_: Exception) { status = "Open Bluetooth settings manually" }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)
+            ) { Text("Bluetooth settings") }
+        }
+        if (connectedName.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text("Connected: $connectedName", color = Accent, fontSize = 13.sp)
+            Text("This peripheral is connected. Device controls depend on its supported GATT service.", color = Muted, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("FOUND DEVICES  •  ${devices.size}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        if (devices.isEmpty()) {
+            Text("Tap Scan devices. Keep the device nearby and make it discoverable.", color = Muted, fontSize = 13.sp)
+        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(devices, key = { it.address }) { item ->
+                Column(
+                    Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(12.dp)
+                ) {
+                    Text(item.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("${item.address}  •  RSSI ${item.rssi} dBm", color = Muted, fontSize = 10.sp)
+                    Spacer(Modifier.height(7.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                try {
+                                    status = "Connecting to ${item.name}…"
+                                    activeGatt?.close()
+                                    activeGatt = item.device.connectGatt(context, false, object : BluetoothGattCallback() {
+                                        override fun onConnectionStateChange(gatt: BluetoothGatt, statusCode: Int, newState: Int) {
+                                            activity.runOnUiThread {
+                                                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                                                    connectedName = item.name
+                                                    status = "Connected"
+                                                    gatt.discoverServices()
+                                                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                                                    if (connectedName == item.name) connectedName = ""
+                                                    status = "Disconnected"
+                                                }
+                                            }
+                                        }
+                                        override fun onServicesDiscovered(gatt: BluetoothGatt, statusCode: Int) {
+                                            activity.runOnUiThread {
+                                                status = if (statusCode == BluetoothGatt.GATT_SUCCESS)
+                                                    "Connected • ${gatt.services.size} services found"
+                                                else "Connected • service discovery unavailable"
+                                            }
+                                        }
+                                    }, BluetoothDevice.TRANSPORT_LE)
+                                } catch (_: SecurityException) { status = "Bluetooth permission required" }
+                                catch (_: Exception) { status = "Connection not supported by this device" }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
+                        ) { Text("Connect") }
+                        Button(
+                            onClick = {
+                                try {
+                                    if (item.device.bondState == BluetoothDevice.BOND_BONDED) status = "Already paired"
+                                    else {
+                                        status = "Confirm pairing in Android dialog"
+                                        item.device.createBond()
+                                    }
+                                } catch (_: SecurityException) { status = "Bluetooth permission required" }
+                                catch (_: Exception) { status = "Pairing not supported" }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF29332D), contentColor = Color.White)
+                        ) { Text("Pair") }
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun ModuleScreen(module: Module, onBack: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Background)
-            .padding(22.dp)
-    ) {
-        Text(
-            "‹  BACK",
-            color = Accent,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable { onBack() }
-        )
-        Spacer(Modifier.height(35.dp))
+    Column(Modifier.fillMaxSize().background(Background).padding(22.dp)) {
+        Text("‹  BACK", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() })
+        Spacer(Modifier.height(30.dp))
         Text(module.symbol, color = Accent, fontSize = 48.sp)
         Spacer(Modifier.height(12.dp))
         Text(module.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        Text(module.detail, color = Muted, fontSize = 15.sp, lineHeight = 22.sp)
-        Spacer(Modifier.height(28.dp))
-        Text(
-            "MODULE STATUS",
-            color = Accent,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Not connected yet",
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "The next development step is to add the real Android connection flow, permission prompts and device-specific controls for this module.",
-            color = Muted,
-            fontSize = 13.sp,
-            lineHeight = 19.sp
-        )
+        Text(module.detail, color = Muted, fontSize = 14.sp, lineHeight = 21.sp)
+        Spacer(Modifier.height(20.dp))
+        Text("NOT AVAILABLE YET", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
