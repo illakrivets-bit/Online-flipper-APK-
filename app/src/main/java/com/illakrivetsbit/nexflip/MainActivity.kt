@@ -517,7 +517,7 @@ private fun BluetoothScreen(onBack: () -> Unit) {
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
                         ) { Text("Connect") }
-                        Button(onClick = { saveDevice(context, SavedDevice(item.name, "Bluetooth LE", item.address)); status = "Saved to device hub" }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.Black)) { Text("Save") }
+                        Button(onClick = { saveDevice(context, SavedDevice(item.name, "Bluetooth LE", item.address)); status = "Saved to device hub" }, colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = Color.White)) { Text("Save") }
                         Button(
                             onClick = {
                                 try {
