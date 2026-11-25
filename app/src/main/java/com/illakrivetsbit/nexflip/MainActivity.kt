@@ -141,6 +141,12 @@ private fun qrBitmap(value: String): Bitmap? = try {
     }
 } catch (_: Exception) { null }
 
+private fun saveDevice(context: android.content.Context, item: SavedDevice) {
+    val prefs = context.getSharedPreferences("device_hub", android.content.Context.MODE_PRIVATE)
+    val all = prefs.getStringSet("saved", emptySet()).orEmpty().toMutableSet()
+    all.add(item.name + "|" + item.type + "|" + item.address)
+    prefs.edit().putStringSet("saved", all).apply()
+}
 @Composable
 private fun HomeScreen(onSelect: (Module) -> Unit) {
     val activity = LocalContext.current as ComponentActivity
@@ -390,6 +396,7 @@ private fun BluetoothScreen(onBack: () -> Unit) {
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
                         ) { Text("Connect") }
+                        Button(onClick = { saveDevice(context, SavedDevice(item.name, "Bluetooth LE", item.address)); status = "Saved to device hub" }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.Black)) { Text("Save") }
                         Button(
                             onClick = {
                                 try {
@@ -634,6 +641,7 @@ private fun WifiScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(12.dp)) {
                     Text(item.name, color = Color.White, fontWeight = FontWeight.SemiBold)
                     Text("${item.host}:${item.port} • ${item.type}", color = Muted, fontSize = 10.sp)
+                    Button(onClick = { saveDevice(context, SavedDevice(item.name, "Wi-Fi", item.host + ":" + item.port)); status = "Saved to device hub" }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0), contentColor = Color.Black)) { Text("Save device") }
                     if (item.type.contains("_http._tcp") || item.type.contains("_ipp._tcp")) {
                         Spacer(Modifier.height(6.dp))
                         Button(
