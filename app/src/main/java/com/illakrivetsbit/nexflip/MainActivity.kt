@@ -164,6 +164,7 @@ private fun BluetoothScreen(onBack: () -> Unit) {
     var scanning by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Ready to scan") }
     var connectedName by remember { mutableStateOf("") }
+    var gattServices by remember { mutableStateOf<List<String>>(emptyList()) }
     var activeGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
 
     val permissions = remember {
@@ -309,6 +310,7 @@ private fun BluetoothScreen(onBack: () -> Unit) {
                                         }
                                         override fun onServicesDiscovered(gatt: BluetoothGatt, statusCode: Int) {
                                             activity.runOnUiThread {
+                                                gattServices = if (statusCode == BluetoothGatt.GATT_SUCCESS) gatt.services.map { it.uuid.toString() } else emptyList()
                                                 status = if (statusCode == BluetoothGatt.GATT_SUCCESS)
                                                     "Connected • ${gatt.services.size} services found"
                                                 else "Connected • service discovery unavailable"
