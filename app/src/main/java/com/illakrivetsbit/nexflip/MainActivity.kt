@@ -157,7 +157,7 @@ private fun NexFlipApp() {
                                 val raw = barcode.rawValue.orEmpty()
                                 val parsed = parseInvite(raw)
                                 if (parsed == null) {
-                                    Toast.makeText(context, "Это не QR-приглашение NEXFLIP", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Это не QR-приглашение Online Flipper : Zero", Toast.LENGTH_LONG).show()
                                 } else if (parsed.expiresAt <= System.currentTimeMillis()) {
                                     Toast.makeText(context, "Срок действия QR-кода истёк", Toast.LENGTH_LONG).show()
                                 } else if (devices.none { it.id == parsed.id }) {
@@ -208,7 +208,7 @@ private fun HomeScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("NEXFLIP", color = White, fontSize = 24.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+                Text("Online Flipper : Zero", color = White, fontSize = 17.sp, fontWeight = FontWeight.Black, letterSpacing = 0.3.sp, maxLines = 1, softWrap = false)
                 Text("DEVICE CONTROL", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
             }
             Box(
@@ -294,7 +294,7 @@ private fun HomeScreen(
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("NEXFLIP  •  PRIVATE CONNECTIONS", color = Color(0xFF555555), fontSize = 8.sp, letterSpacing = 1.sp)
+            Text("Online Flipper : Zero  •  PRIVATE CONNECTIONS", color = Color(0xFF555555), fontSize = 8.sp, letterSpacing = 1.sp)
             Spacer(Modifier.weight(1f))
             Text("ABOUT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onAbout))
         }
@@ -344,7 +344,7 @@ private fun InviteDialog(qr: Bitmap?, expiresAt: Long, onDismiss: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             Text("Приглашение действует 24 часа", color = Color(0xFF555555), fontSize = 11.sp)
             Spacer(Modifier.height(5.dp))
-            Text("Для реального соединения нужен активный сервер NEXFLIP.", color = Color(0xFF777777), fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Для реального соединения нужен активный сервер Online Flipper : Zero.", color = Color(0xFF777777), fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(18.dp))
             Button(
                 onClick = onDismiss,
@@ -424,7 +424,7 @@ private fun AboutScreen(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Black).statusBarsPadding().padding(22.dp)) {
         Text("‹  НАЗАД", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
         Spacer(Modifier.height(30.dp))
-        Text("NEXFLIP", color = White, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+        Text("Online Flipper : Zero", color = White, fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, maxLines = 1, softWrap = false)
         Text("DEVICE CONTROL", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
         Spacer(Modifier.height(20.dp))
         Text("Один экран. Твои устройства. Твой контроль.", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold, lineHeight = 25.sp)
