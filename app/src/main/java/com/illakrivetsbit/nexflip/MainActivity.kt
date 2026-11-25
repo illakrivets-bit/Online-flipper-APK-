@@ -96,10 +96,15 @@ private fun OnlineFlipperApp(activity: MainActivity) {
     fun show(text: String) {
         activity.runOnUiThread { Toast.makeText(context, text, Toast.LENGTH_LONG).show() }
     }
+    fun cancelInvite() {
+        val current = invite ?: return
+        RemoteConnection.revoke(current.id, current.ownerToken) { }
+        invite = null
+    }
 
     BackHandler(enabled = invite != null || companion != null || selected != null) {
         when {
-            invite != null -> invite = null
+            invite != null -> cancelInvite()
             companion != null -> { companion = null; socket?.close(1000, "User closed"); socket = null }
             selected != null -> { selected = null; socket?.close(1000, "Control closed"); socket = null }
         }
@@ -211,7 +216,15 @@ private fun OnlineFlipperApp(activity: MainActivity) {
                         }.onFailure { show("Не удалось подтвердить: ${it.message}") }
                     }
                 },
-                onClose = { invite = null }
+                onDeny = {
+                    val current = invite ?: return@InviteScreen
+                    val requestId = current.pendingId ?: return@InviteScreen
+                    RemoteConnection.deny(current.id, current.ownerToken, requestId) { result ->
+                        result.onSuccess { activity.runOnUiThread { invite = invite?.copy(pendingId = null, pendingName = null) } }
+                            .onFailure { show("Не удалось отклонить запрос: ${it.message}") }
+                    }
+                },
+                onClose = { cancelInvite() }
             )
             companion != null -> CompanionScreen(companion!!, onClose = {
                 companion = null
@@ -355,7 +368,7 @@ private fun ActionCard(kicker: String, title: String, subtitle: String, onClick:
 }
 
 @Composable
-private fun InviteScreen(invite: InviteState, onApprove: () -> Unit, onClose: () -> Unit) {
+private fun InviteScreen(invite: InviteState, onApprove: () -> Unit, onDeny: () -> Unit, onClose: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Black).statusBarsPadding().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("ПРИГЛАШЕНИЕ", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, modifier = Modifier.weight(1f))
@@ -379,6 +392,12 @@ private fun InviteScreen(invite: InviteState, onApprove: () -> Unit, onClose: ()
                 onClick = onApprove, modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = White, contentColor = Black)
             ) { Text("ПОДТВЕРДИТЬ ПОДКЛЮЧЕНИЕ", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onDeny, modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = White)
+            ) { Text("ОТКЛОНИТЬ ЗАПРОС", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
         }
         Spacer(Modifier.weight(1f))
         Text("Код одноразовый. Сессия завершится через 24 часа.", color = Muted, fontSize = 10.sp)
