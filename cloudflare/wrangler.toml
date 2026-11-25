@@ -1,0 +1,11 @@
+name = "online-flipper-pairing"
+main = "src/index.ts"
+compatibility_date = "2026-11-25"
+
+[[durable_objects.bindings]]
+name = "SESSIONS"
+class_name = "PairingSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PairingSession"]
